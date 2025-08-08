@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String   @id @default(uuid())
+  username String   @unique
+  email    String   @unique
+  bids     Bid[]
+  auctions Auction[] @relation("auction_owner")
+  wonAuctions Auction[] @relation("auction_winner") // Added opposite relation
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Car {
+  reservePrice Float
+  id          String   @id @default(uuid())
+  make        String
+  model       String
+  year        Int
+  description String?
+  imageUrl    String?
+  auctions    Auction[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Auction {
+  id               String   @id @default(uuid())
+  carId            String
+  car              Car      @relation(fields: [carId], references: [id])
+  startTime        DateTime
+  endTime          DateTime
+  startingBid      Float
+  currentHighestBid Float
+  winnerId         String?
+  winner           User?    @relation(fields: [winnerId], references: [id], name: "auction_winner")
+  status           AuctionStatus @default(ACTIVE)
+  ownerId          String
+  owner            User     @relation("auction_owner", fields: [ownerId], references: [id])
+  bids             Bid[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Bid {
+  id         String   @id @default(uuid())
+  amount     Float
+  auctionId  String
+  auction    Auction  @relation(fields: [auctionId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum AuctionStatus {
+  ACTIVE
+  ENDING_SOON
+  ENDED
+  CANCELLED
+}
