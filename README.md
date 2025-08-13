@@ -1,98 +1,89 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Live Car Bidding System - Assessment Solution
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Overview
+This NestJS application implements a real-time car auction system with WebSocket functionality, PostgreSQL database, Redis for pub/sub messaging, and Docker containerization.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features Implemented
+✅ **WebSocket Gateway**:
+- Real-time bidding with `joinAuction`, `placeBid`, and `auctionEnd` events
+- Socket.IO integration for efficient client communication
 
-## Description
+✅ **Database**:
+- PostgreSQL with Prisma ORM
+- Transactional bid processing
+- Concurrency management
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+✅ **Redis Pub/Sub**:
+- Real-time bid broadcasting
+- Channel-based updates for each auction
 
-## Project setup
+✅ **Rate Limiting**:
+- IP-based request throttling (commented for local testing)
 
-```bash
-$ npm install
-```
+✅ **Dockerized**:
+- Ready-to-run containers for all services
 
-## Compile and run the project
+## Important Notes
+### Rate Limiting Guard
+The `WsThrottlerGuard` is implemented but currently commented out:
+```typescript
+ @UseGuards(WsThrottlerGuard)
 
-```bash
-# development
-$ npm run start
+Reason:
+Local testing with Docker can trigger false positives because all requests appear to come from the same Docker network IP.
 
-# watch mode
-$ npm run start:dev
+For Production:
 
-# production mode
-$ npm run start:prod
-```
+Uncomment the guard
 
-## Run tests
+Configure proper IP resolution:
 
-```bash
-# unit tests
-$ npm run test
+typescript
+protected getTracker(context: ExecutionContext) {
+  const client = context.switchToWs().getClient();
+  return client.handshake.headers['x-real-ip'] || client.handshake.address;
+}
+Set appropriate rate limits in app.module.ts
 
-# e2e tests
-$ npm run test:e2e
+Getting Started
+Prerequisites
+Docker
 
-# test coverage
-$ npm run test:cov
-```
+Docker Compose
 
-## Deployment
+Node.js (v16+)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Installation
+bash
+after cloning the repo
+docker-compose up -d
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Monitor Redis messages:
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+bash
+docker-compose exec redis redis-cli monitor
+Technical Details
+Ports:
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+API: 3000
 
-## Resources
+WebSocket: 3002
 
-Check out a few resources that may come in handy when working with NestJS:
+PostgreSQL: 5432
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Redis: 6379
 
-## Support
+Environment Defaults:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Database: postgresql://postgres:postgres@db:5432/car_auction
 
-## Stay in touch
+Redis: redis://redis:6379
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Assessment Requirements Met
+✔ WebSocket implementation
+✔ Real-time bid broadcasting
+✔ Database transactions
+✔ Concurrency control
+✔ Redis integration
+✔ Docker deployment
+✔ Rate limiting (implemented)
