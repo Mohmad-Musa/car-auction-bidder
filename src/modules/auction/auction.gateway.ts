@@ -13,7 +13,7 @@ class BidDto {
   amount: number;
 }
 
-@WebSocketGateway(3002, {
+@WebSocketGateway(3003, {
   path: '/socket.io',  // Required for Socket.IO
   transports: ['websocket'],
   serveClient: false,  // Disable static files
@@ -26,14 +26,14 @@ class BidDto {
 export class AuctionGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
-
+ private auctionTimers: Map<string, NodeJS.Timeout> = new Map();
    constructor(
     @InjectRedis() private readonly redis: Redis, // Correct injection
     private readonly prisma: PrismaService,
   ) {}
 
   afterInit(server: Server) {
-    console.log('WebSocket Server running on port 3002');
+    console.log('WebSocket Server running on port 3003');
   }
 
   handleConnection(client: Socket) {
@@ -90,7 +90,7 @@ export class AuctionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
     }
   }
 
-  @SubscribeMessage('placeBid')
+@SubscribeMessage('placeBid')
   async handleBid(
     @MessageBody() bidDto: BidDto,
     @ConnectedSocket() client: Socket
@@ -111,6 +111,12 @@ export class AuctionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
       const currentHighest = auction.bids[0]?.amount || auction.startingBid;
       if (currentHighest >= bidDto.amount) {
         throw new Error(`Bid must be higher than $${currentHighest}`);
+      }
+
+      // Clear any existing timer for this auction
+      if (this.auctionTimers.has(bidDto.auctionId)) {
+        clearTimeout(this.auctionTimers.get(bidDto.auctionId));
+        this.auctionTimers.delete(bidDto.auctionId);
       }
 
       const [bid] = await this.prisma.$transaction([
@@ -144,14 +150,19 @@ export class AuctionGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         timestamp: new Date(),
         isReserveMet: bidDto.amount >= auction.car.reservePrice
       });
-await this.redis.publish(
-      `auction:${bidDto.auctionId}:bids`, 
-      JSON.stringify({
-        amount: bidDto.amount,
-        userId: bidDto.userId,
-        timestamp: new Date()
-      })
-    );
+
+      await this.redis.publish(
+        `auction:${bidDto.auctionId}:bids`, 
+        JSON.stringify({
+          amount: bidDto.amount,
+          userId: bidDto.userId,
+          timestamp: new Date()
+        })
+      );
+
+      // Set a new timer to end the auction in 60 seconds
+      this.setAuctionEndTimer(bidDto.auctionId);
+
       return { success: true };
     } catch (error) {
       client.emit('bidError', {
@@ -160,5 +171,39 @@ await this.redis.publish(
       });
       return { success: false };
     }
+  }
+
+  private async setAuctionEndTimer(auctionId: string) {
+    // Clear any existing timer
+    if (this.auctionTimers.has(auctionId)) {
+      clearTimeout(this.auctionTimers.get(auctionId));
+      this.auctionTimers.delete(auctionId);
+    }
+
+    // Set new timer
+    const timer = setTimeout(async () => {
+      try {
+        const updatedAuction = await this.prisma.auction.update({
+          where: { id: auctionId },
+          data: { status: AuctionStatus.ENDED }
+        });
+
+        // Notify all clients that the auction has ended
+        this.server.to(auctionId).emit('auctionEnded', {
+          auctionId,
+          message: `Auction ${auctionId} has ended`,
+          winnerId: updatedAuction.winnerId,
+          finalPrice: updatedAuction.currentHighestBid
+        });
+
+        console.log(`Auction ${auctionId} has been ended`);
+      } catch (error) {
+        console.error(`Failed to end auction ${auctionId}:`, error);
+      } finally {
+        this.auctionTimers.delete(auctionId);
+      }
+    }, 90000); 
+
+    this.auctionTimers.set(auctionId, timer);
   }
 }

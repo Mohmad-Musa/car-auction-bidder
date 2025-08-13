@@ -5,12 +5,14 @@ const socket = io('http://localhost:3003', {
   reconnection: false,
 });
 
+
 const auctionId = '34a973eb-b936-4167-ab9a-17ab47b9a277';
 const userId = 'f7a35915-ad0e-401e-8c3a-edf3331085c6';
 
 socket.on('connect', () => {
   console.log('✅ Connected to WebSocket server');
-  console.log('Attempting to join auction:', auctionId);
+
+  // Join an auction
   socket.emit('joinAuction', auctionId);
 });
 
@@ -20,9 +22,6 @@ socket.on('auctionData', (data) => {
 
 socket.on('bidUpdate', (data) => {
   console.log('🔼 New bid:', data);
-});
-socket.on('auctionEnded', (data) => {
-  console.log('🏁 Auction ended:', data);
 });
 
 socket.on('error', (err) => {
@@ -38,6 +37,6 @@ setTimeout(() => {
   socket.emit('placeBid', {
     auctionId,
     userId,
-    amount: 3100000,
+    amount: 3200000, // Replace with a valid bid amount
   });
 }, 2000);
